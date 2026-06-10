@@ -15,14 +15,15 @@ Track daily inflows and outflows for Turkish TEFAS mutual funds (like ZBJ).
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+# 1. Create virtual environment and install dependencies
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 
 # 2. Run for your fund (e.g., ZBJ)
-python tefas_flow.py ZBJ
+.venv/bin/python tefas_flow.py ZBJ
 
 # 3. Run again tomorrow to see flow calculation
-python tefas_flow.py ZBJ
+.venv/bin/python tefas_flow.py ZBJ
 ```
 
 ### Dry Run (print without saving)
