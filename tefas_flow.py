@@ -35,6 +35,7 @@ from tefas_common import (
     calculate_flow,
     fetch_with_retry,
     format_optional,
+    generate_flow_chart,
 )
 
 logger = logging.getLogger(__name__)
@@ -181,13 +182,9 @@ class TEFAScraper:
         return None
 
 
-def main():
-    parser = argparse.ArgumentParser(description='TEFAS Fund Daily Flow Tracker')
-    parser.add_argument('fund_code', help='Fund code (e.g., ZBJ, AFT, MAC)')
-    parser.add_argument('--dry-run', action='store_true', help='Print without saving')
-    args = parser.parse_args()
-
-    fund_code = args.fund_code.upper()
+def process_fund(fund_code, dry_run=False):
+    """Fetch, calculate, save for a single fund. Returns flow dict or None."""
+    fund_code = fund_code.upper()
     history_file = f"{fund_code}_history.csv"
     flow_file = f"{fund_code}_flows.csv"
 
@@ -199,7 +196,7 @@ def main():
     today = scraper.fetch()
 
     if not today:
-        sys.exit(1)
+        return None
 
     print(f"\nToday's Data ({today['date']}):")
     print(f"  Price:        {format_optional(today.get('son_fiyat'), fmt=',.6f')} TL")
@@ -216,7 +213,7 @@ def main():
 
     if not history:
         print(f"\nNo history found. Saving baseline.")
-        if not args.dry_run:
+        if not dry_run:
             with open(history_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=today.keys())
                 writer.writeheader()
@@ -225,10 +222,9 @@ def main():
         else:
             print(f"[DRY-RUN] Would save to {history_file}")
         print("Run again tomorrow to calculate flows.")
-        return
+        return None
 
     yesterday = history[-1]
-    # Convert string numbers back to float/int safely
     yesterday_parsed = {}
     for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
         val = safe_float(yesterday.get(key))
@@ -238,7 +234,6 @@ def main():
         val = safe_int(yesterday.get(key))
         if val is not None:
             yesterday_parsed[key] = val
-    # Keep any other keys not in numeric fields
     for k, v in yesterday.items():
         if k not in yesterday_parsed:
             yesterday_parsed[k] = v
@@ -263,9 +258,9 @@ def main():
     if 'investor_change' in flow:
         print(f"\nInvestor Change: {flow['investor_change']:+,.0f}")
 
-    if args.dry_run:
+    if dry_run:
         print(f"\n[DRY-RUN] Would save to {history_file} and {flow_file}")
-        return
+        return flow
 
     with open(history_file, 'a', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=today.keys())
@@ -279,6 +274,44 @@ def main():
         writer.writerow(flow)
 
     print(f"\nSaved to {history_file} and {flow_file}")
+    return flow
+
+
+def main():
+    parser = argparse.ArgumentParser(description='TEFAS Fund Daily Flow Tracker')
+    parser.add_argument('fund_code', nargs='?', help='Fund code (e.g., ZBJ, AFT, MAC)')
+    parser.add_argument('--funds-file', help='File with one fund code per line')
+    parser.add_argument('--chart', action='store_true', help='Generate cumulative flow chart')
+    parser.add_argument('--dry-run', action='store_true', help='Print without saving')
+    args = parser.parse_args()
+
+    fund_codes = []
+    if args.fund_code:
+        fund_codes.append(args.fund_code.upper())
+    if args.funds_file:
+        with open(args.funds_file, 'r') as f:
+            for line in f:
+                code = line.strip()
+                if code:
+                    fund_codes.append(code.upper())
+
+    if not fund_codes:
+        print("ERROR: Provide a fund code or --funds-file")
+        sys.exit(1)
+
+    for code in fund_codes:
+        process_fund(code, dry_run=args.dry_run)
+
+    if args.chart and fund_codes:
+        flow_dfs = []
+        for code in fund_codes:
+            flow_file = f"{code}_flows.csv"
+            if Path(flow_file).exists():
+                flow_dfs.append(pd.read_csv(flow_file))
+        if flow_dfs:
+            all_flows = pd.concat(flow_dfs, ignore_index=True)
+            chart_file = 'portfolio_cumulative_flow.png' if len(fund_codes) > 1 else f'{fund_codes[0]}_cumulative_flow.png'
+            generate_flow_chart(all_flows, chart_file)
 
 
 if __name__ == '__main__':

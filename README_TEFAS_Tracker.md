@@ -32,6 +32,33 @@ python tefas_flow.py ZBJ --dry-run
 python tefas_flow_tracker.py ZBJ --dry-run
 ```
 
+### Track Multiple Funds from File
+
+Create a text file with one fund code per line:
+```
+ZBJ
+AFT
+MAC
+```
+
+Then run:
+```bash
+python tefas_flow.py --funds-file my_funds.txt
+python tefas_flow_tracker.py --funds-file my_funds.txt
+```
+
+### Generate Cumulative Flow Chart
+
+```bash
+# Single fund
+python tefas_flow.py ZBJ --chart
+
+# Multiple funds
+python tefas_flow.py --funds-file my_funds.txt --chart
+```
+
+Saves a PNG chart showing cumulative inflows/outflows over time. Each fund appears as solid (Method 1) and dashed (Method 2) lines in the same color.
+
 ## How It Works
 
 ### Data Fetched Daily
@@ -59,6 +86,8 @@ Net Flow = Today's NAV - [Yesterday's NAV × (1 + Yesterday's Daily Return)]
 |------|---------|
 | `ZBJ_history.csv` | Raw daily data from TEFAS |
 | `ZBJ_flows.csv` | Calculated daily flows |
+| `ZBJ_cumulative_flow.png` | Cumulative flow chart (with `--chart`) |
+| `portfolio_cumulative_flow.png` | Multi-fund cumulative chart (with `--chart` + `--funds-file`) |
 
 ## Features
 
@@ -66,6 +95,8 @@ Net Flow = Today's NAV - [Yesterday's NAV × (1 + Yesterday's Daily Return)]
 - **Automatic retry** with exponential backoff (3 attempts)
 - **API-first, HTML-fallback** fetching strategy
 - **Safe number parsing** (Turkish format: `50.226.984.550,34`)
+- **Multi-fund tracking** via `--funds-file` (one code per line)
+- **Cumulative flow chart** with `--chart` (solid = Method 1, dashed = Method 2)
 - `--dry-run` flag to preview without saving
 - Turkish number parsing handles `None`, `-`, empty, and already-numeric inputs
 

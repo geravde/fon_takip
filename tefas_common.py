@@ -7,6 +7,11 @@ import time
 import logging
 from typing import Optional
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -114,3 +119,49 @@ def format_optional(value, fmt=",.0f", fallback="N/A"):
     if value is None:
         return fallback
     return f"{value:{fmt}}"
+
+
+def generate_flow_chart(flow_df, output_path):
+    """Generate a cumulative flow chart and save to PNG."""
+    if flow_df.empty:
+        print("No flow data to chart.")
+        return
+
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ImportError:
+        print("matplotlib not installed. Install with: pip install matplotlib")
+        return
+
+    df = flow_df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values(['fund_code', 'date'])
+
+    df['cum_shares'] = df.groupby('fund_code')['flow_shares_mil'].cumsum()
+    df['cum_nav'] = df.groupby('fund_code')['flow_nav_mil'].cumsum()
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    funds = df['fund_code'].unique()
+    colors = plt.cm.tab10(np.linspace(0, 1, len(funds)))
+
+    for i, fund in enumerate(funds):
+        fdata = df[df['fund_code'] == fund]
+        ax.plot(fdata['date'], fdata['cum_shares'], color=colors[i], linestyle='-',
+                linewidth=2, label=f'{fund} – Method 1')
+        ax.plot(fdata['date'], fdata['cum_nav'], color=colors[i], linestyle='--',
+                linewidth=1.5, alpha=0.7, label=f'{fund} – Method 2')
+
+    ax.axhline(y=0, color='gray', linestyle=':', linewidth=0.8)
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Cumulative Flow (Million TL)')
+    ax.set_title('Cumulative Fund Flows')
+    ax.legend(loc='best', fontsize=9)
+    ax.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    print(f"Chart saved: {output_path}")
