@@ -124,6 +124,11 @@ class TEFAScraper:
             'fund_code': self.fund_code,
         }
 
+        # Try RSC payload (Next.js App Router format)
+        parsed = self._parse_rsc_payload(html)
+        if parsed:
+            return parsed
+
         # Try to find JSON embedded in script tags
         state_patterns = [
             r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
@@ -163,6 +168,58 @@ class TEFAScraper:
         inv_match = re.search(r'Yatırımcı\s*Sayısı.*?([\d.,]+)', html, re.I | re.DOTALL)
         if inv_match:
             result['yatirimci_sayisi'] = safe_int(inv_match.group(1))
+
+        return result if len(result) > 2 else None
+
+    def _parse_rsc_payload(self, html):
+        """Extract fund data from Next.js RSC payload (bilgiData)."""
+        start = html.find('\\"bilgiData\\":{')
+        if start == -1:
+            return None
+
+        brace_start = html.find('{', start)
+        if brace_start == -1:
+            return None
+
+        count = 0
+        in_escape = False
+        end = brace_start
+        for i in range(brace_start, len(html)):
+            if html[i] == '\\' and not in_escape:
+                in_escape = True
+                continue
+            if in_escape:
+                in_escape = False
+                continue
+            if html[i] == '{':
+                count += 1
+            elif html[i] == '}':
+                count -= 1
+                if count == 0:
+                    end = i + 1
+                    break
+
+        raw_json = html[brace_start:end]
+        json_str = raw_json.replace('\\"', '"')
+
+        result = {
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'fund_code': self.fund_code,
+        }
+
+        fields = {
+            'son_fiyat': r'"sonFiyat":([0-9.]+)',
+            'gunluk_getiri_pct': r'"gunlukGetiri":([0-9.]+)',
+            'pay_adet': r'"payAdet":([0-9]+)',
+            'fon_toplam_deger': r'"portBuyukluk":([0-9.]+)',
+            'yatirimci_sayisi': r'"yatirimciSayi":([0-9]+)',
+        }
+
+        for key, pattern in fields.items():
+            m = re.search(pattern, json_str)
+            if m:
+                val = m.group(1)
+                result[key] = float(val) if '.' in val else int(val)
 
         return result if len(result) > 2 else None
 

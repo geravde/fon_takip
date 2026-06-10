@@ -55,9 +55,10 @@ class TEFASFlowTracker:
         self.history_file = history_file or f"{fund_code}_history.csv"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Origin': 'https://www.tefas.gov.tr',
             'Referer': 'https://www.tefas.gov.tr/',
         })
 
@@ -153,6 +154,58 @@ class TEFASFlowTracker:
 
         return metrics
 
+    def _parse_rsc_payload(self, html):
+        """Extract fund data from Next.js RSC payload (bilgiData)."""
+        start = html.find('\\"bilgiData\\":{')
+        if start == -1:
+            return None
+
+        brace_start = html.find('{', start)
+        if brace_start == -1:
+            return None
+
+        count = 0
+        in_escape = False
+        end = brace_start
+        for i in range(brace_start, len(html)):
+            if html[i] == '\\' and not in_escape:
+                in_escape = True
+                continue
+            if in_escape:
+                in_escape = False
+                continue
+            if html[i] == '{':
+                count += 1
+            elif html[i] == '}':
+                count -= 1
+                if count == 0:
+                    end = i + 1
+                    break
+
+        raw_json = html[brace_start:end]
+        json_str = raw_json.replace('\\"', '"')
+
+        result = {
+            'date': datetime.now().strftime('%Y-%m-%d'),
+            'fund_code': self.fund_code,
+        }
+
+        fields = {
+            'son_fiyat': r'"sonFiyat":([0-9.]+)',
+            'gunluk_getiri_pct': r'"gunlukGetiri":([0-9.]+)',
+            'pay_adet': r'"payAdet":([0-9]+)',
+            'fon_toplam_deger': r'"portBuyukluk":([0-9.]+)',
+            'yatirimci_sayisi': r'"yatirimciSayi":([0-9]+)',
+        }
+
+        for key, pattern in fields.items():
+            m = re.search(pattern, json_str)
+            if m:
+                val = m.group(1)
+                result[key] = float(val) if '.' in val else int(val)
+
+        return result if len(result) > 2 else None
+
     def fetch_today(self) -> Dict:
         """Fetch today's fund data from TEFAS."""
         url = self.BASE_URL.format(code=self.fund_code)
@@ -164,7 +217,14 @@ class TEFASFlowTracker:
             print(f"Error fetching page: {e}")
             return {}
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        html = response.text
+
+        rsc_data = self._parse_rsc_payload(html)
+        if rsc_data:
+            print("Data fetched from RSC payload")
+            return rsc_data
+
+        soup = BeautifulSoup(html, 'html.parser')
 
         metrics = self._extract_all_metrics(soup)
 
