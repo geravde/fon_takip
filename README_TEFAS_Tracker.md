@@ -10,12 +10,13 @@ Track daily inflows and outflows for Turkish TEFAS mutual funds (like ZBJ).
 | `tefas_flow.py` | Lightweight script with `requests` + `pandas` |
 | `tefas_flow_tracker.py` | Full version with `BeautifulSoup`, `argparse`, `pandas` |
 | `test_tefas_common.py` | Tests for shared utilities (30 tests) |
+| `requirements.txt` | Python package dependencies |
 
 ## Quick Start
 
 ```bash
 # 1. Install dependencies
-pip install requests pandas
+pip install -r requirements.txt
 
 # 2. Run for your fund (e.g., ZBJ)
 python tefas_flow.py ZBJ
@@ -71,7 +72,7 @@ Net Flow = Today's NAV - [Yesterday's NAV × (1 + Yesterday's Daily Return)]
 ## Testing
 
 ```bash
-pip install pytest pytest-mock
+pip install -r requirements.txt pytest pytest-mock
 pytest test_tefas_common.py -v
 ```
 
