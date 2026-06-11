@@ -294,9 +294,12 @@ class TEFASFlowTracker:
 
         yesterday = {}
         for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
-            val = safe_float(yesterday_raw.get(key))
-            if val is not None:
-                yesterday[key] = val
+            val = yesterday_raw.get(key)
+            if val is not None and val != '':
+                try:
+                    yesterday[key] = float(val)
+                except (ValueError, TypeError):
+                    pass
         for key in ['pay_adet', 'yatirimci_sayisi']:
             val = safe_int(yesterday_raw.get(key))
             if val is not None:

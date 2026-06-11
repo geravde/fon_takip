@@ -73,15 +73,15 @@ def calculate_flow(today: dict, yesterday: dict) -> dict:
         result['share_change'] = share_change
         result['flow_shares_tl'] = flow
         result['flow_shares_mil'] = round(flow / 1_000_000, 2)
-        result['direction'] = 'INFLOW' if flow > 0 else 'OUTFLOW'
+        result['direction'] = 'INFLOW' if flow > 0 else ('NEUTRAL' if flow == 0 else 'OUTFLOW')
 
     # Method 2: NAV minus expected return
     fon_toplam_today = today.get('fon_toplam_deger')
     fon_toplam_yesterday = yesterday.get('fon_toplam_deger')
-    getiri_yesterday = yesterday.get('gunluk_getiri_pct')
+    getiri_today = today.get('gunluk_getiri_pct')
 
-    if fon_toplam_today is not None and fon_toplam_yesterday is not None and getiri_yesterday is not None:
-        ret = getiri_yesterday / 100
+    if fon_toplam_today is not None and fon_toplam_yesterday is not None and getiri_today is not None:
+        ret = getiri_today / 100
         expected = fon_toplam_yesterday * (1 + ret)
         flow = fon_toplam_today - expected
         result['flow_nav_tl'] = flow

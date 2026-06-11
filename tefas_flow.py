@@ -322,16 +322,29 @@ def process_fund(fund_code, dry_run=False):
         print(f"\n[DRY-RUN] Would save to {history_file} and {flow_file}")
         return flow
 
-    with open(history_file, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=today.keys())
-        writer.writerow(today)
+    # Deduplicate: remove existing row for same date before appending
+    if Path(history_file).exists():
+        df_hist = pd.read_csv(history_file)
+        df_hist = df_hist[df_hist['date'] != today['date']]
+        df_hist = pd.concat([df_hist, pd.DataFrame([today])], ignore_index=True)
+        df_hist.to_csv(history_file, index=False)
+    else:
+        with open(history_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=today.keys())
+            writer.writeheader()
+            writer.writerow(today)
 
     flow_exists = Path(flow_file).exists()
-    with open(flow_file, 'a', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=flow.keys())
-        if not flow_exists:
+    if flow_exists:
+        df_flow = pd.read_csv(flow_file)
+        df_flow = df_flow[df_flow['date'] != flow['date']]
+        df_flow = pd.concat([df_flow, pd.DataFrame([flow])], ignore_index=True)
+        df_flow.to_csv(flow_file, index=False)
+    else:
+        with open(flow_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=flow.keys())
             writer.writeheader()
-        writer.writerow(flow)
+            writer.writerow(flow)
 
     print(f"\nSaved to {history_file} and {flow_file}")
     return flow
