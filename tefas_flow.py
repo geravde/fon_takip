@@ -284,9 +284,12 @@ def process_fund(fund_code, dry_run=False):
     yesterday = history[-1]
     yesterday_parsed = {}
     for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
-        val = safe_float(yesterday.get(key))
-        if val is not None:
-            yesterday_parsed[key] = val
+        val = yesterday.get(key)
+        if val is not None and val != '':
+            try:
+                yesterday_parsed[key] = float(val)
+            except (ValueError, TypeError):
+                pass
     for key in ['pay_adet', 'yatirimci_sayisi']:
         val = safe_int(yesterday.get(key))
         if val is not None:
