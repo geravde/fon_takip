@@ -52,7 +52,8 @@ class TEFASFlowTracker:
 
     def __init__(self, fund_code: str, history_file: Optional[str] = None):
         self.fund_code = fund_code.upper()
-        self.history_file = history_file or f"{fund_code}_history.csv"
+        self.history_file = history_file or f"{self.fund_code}_history.csv"
+        self.flow_file = f"{self.fund_code}_flows.csv"
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -337,14 +338,13 @@ class TEFASFlowTracker:
 
         self.save_to_history(today)
 
-        flow_file = self.history_file.replace('_history.csv', '_flows.csv')
         flow_df = pd.DataFrame([flow])
-        if Path(flow_file).exists():
-            existing = pd.read_csv(flow_file)
+        if Path(self.flow_file).exists():
+            existing = pd.read_csv(self.flow_file)
             existing = existing[existing['date'] != flow['date']]
             flow_df = pd.concat([existing, flow_df], ignore_index=True)
-        flow_df.to_csv(flow_file, index=False)
-        print(f"\nFlow report saved to {flow_file}")
+        flow_df.to_csv(self.flow_file, index=False)
+        print(f"\nFlow report saved to {self.flow_file}")
         return flow
 
 
@@ -383,16 +383,17 @@ def main():
         print(history.to_string())
         return
 
+    trackers = []
     for code in fund_codes:
         tracker = TEFASFlowTracker(code, args.history_file)
         tracker.run_daily(dry_run=args.dry_run)
+        trackers.append(tracker)
 
     if args.chart and fund_codes:
         flow_dfs = []
-        for code in fund_codes:
-            flow_file = f"{code}_flows.csv"
-            if Path(flow_file).exists():
-                flow_dfs.append(pd.read_csv(flow_file))
+        for tracker in trackers:
+            if Path(tracker.flow_file).exists():
+                flow_dfs.append(pd.read_csv(tracker.flow_file))
         if flow_dfs:
             all_flows = pd.concat(flow_dfs, ignore_index=True)
             chart_file = 'portfolio_cumulative_flow.png' if len(fund_codes) > 1 else f'{fund_codes[0]}_cumulative_flow.png'
