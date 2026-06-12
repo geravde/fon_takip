@@ -118,9 +118,12 @@ class TestCalculateFlow:
         assert flow['flow_shares_mil'] == 2500.0
         assert flow['direction'] == 'INFLOW'
 
-        # NAV method: today's NAV - (yesterday * (1 + today's return))
-        expected = 49_000_000_000.0 * (1 + 0.1 / 100)
+        # NAV method: today's NAV - (yesterday * (1 + price-derived return))
+        ret = 5.0 / 4.9 - 1
+        expected = 49_000_000_000.0 * (1 + ret)
         assert flow['flow_nav_tl'] == pytest.approx(52_500_000_000.0 - expected)
+        # M1 and M2 should match when derived from same price data
+        assert flow['flow_nav_tl'] == pytest.approx(flow['flow_shares_tl'])
         assert flow['investor_change'] == 300
 
     def test_outflow(self):
