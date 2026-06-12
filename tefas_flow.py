@@ -281,7 +281,21 @@ def process_fund(fund_code, dry_run=False):
         print("Run again tomorrow to calculate flows.")
         return None
 
-    yesterday = history[-1]
+    prior = [h for h in history if h.get('date') != today.get('date')]
+    if not prior:
+        print(f"\nNo prior day data. Saving today as baseline.")
+        if not dry_run:
+            with open(history_file, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=today.keys())
+                writer.writeheader()
+                writer.writerow(today)
+            print(f"Saved to {history_file}")
+        else:
+            print(f"[DRY-RUN] Would save to {history_file}")
+        print("Run again tomorrow to see flow calculations.")
+        return None
+
+    yesterday = prior[-1]
     yesterday_parsed = {}
     for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
         val = yesterday.get(key)

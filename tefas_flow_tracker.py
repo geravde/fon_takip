@@ -291,7 +291,17 @@ class TEFASFlowTracker:
             print(f"Run again tomorrow to see flow calculations.")
             return None
 
-        yesterday_raw = history.iloc[-1].to_dict()
+        prior = history[history['date'] != today.get('date')]
+        if prior.empty:
+            print(f"\nNo prior day data. Saving today's data as baseline.")
+            if not dry_run:
+                self.save_to_history(today)
+            else:
+                print(f"[DRY-RUN] Would save to {self.history_file}")
+            print(f"Run again tomorrow to see flow calculations.")
+            return None
+
+        yesterday_raw = prior.iloc[-1].to_dict()
 
         yesterday = {}
         for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
