@@ -37,6 +37,7 @@ from tefas_common import (
     safe_int,
     safe_float,
     calculate_flow,
+    backfill_flows,
     fetch_with_retry,
     format_optional,
     generate_flow_chart,
@@ -355,6 +356,7 @@ class TEFASFlowTracker:
             flow_df = pd.concat([existing, flow_df], ignore_index=True)
         flow_df.to_csv(self.flow_file, index=False)
         print(f"\nFlow report saved to {self.flow_file}")
+        backfill_flows(self.history_file, self.flow_file)
         return flow
 
 

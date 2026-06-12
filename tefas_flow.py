@@ -33,6 +33,7 @@ from tefas_common import (
     safe_int,
     safe_float,
     calculate_flow,
+    backfill_flows,
     fetch_with_retry,
     format_optional,
     generate_flow_chart,
@@ -361,6 +362,7 @@ def process_fund(fund_code, dry_run=False):
             writer.writerow(flow)
 
     print(f"\nSaved to {history_file} and {flow_file}")
+    backfill_flows(history_file, flow_file)
     return flow
 
 

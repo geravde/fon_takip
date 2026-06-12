@@ -123,6 +123,71 @@ def format_optional(value, fmt=",.0f", fallback="N/A"):
     return f"{value:{fmt}}"
 
 
+def backfill_flows(history_file, flow_file):
+    """Backfill missing flow entries from history CSV into flows CSV.
+
+    Scans history for consecutive day-pairs that don't yet have a
+    corresponding row in the flows file, computes them, and appends.
+    """
+    from pathlib import Path
+
+    if pd is None:
+        return
+
+    try:
+        history = pd.read_csv(history_file)
+    except Exception:
+        return
+
+    if len(history) < 2:
+        return
+
+    # Collect existing flow dates
+    flow_dates = set()
+    existing = None
+    if Path(flow_file).exists():
+        try:
+            existing = pd.read_csv(flow_file)
+            flow_dates = set(existing['date'].astype(str))
+        except Exception:
+            existing = None
+
+    def _parse(r):
+        d = {'date': str(r.get('date', '')), 'fund_code': str(r.get('fund_code', ''))}
+        for key in ['son_fiyat', 'fon_toplam_deger', 'gunluk_getiri_pct']:
+            val = r.get(key)
+            if val is not None and val != '' and not (isinstance(val, float) and pd.isna(val)):
+                try:
+                    d[key] = float(val)
+                except (ValueError, TypeError):
+                    pass
+        for key in ['pay_adet', 'yatirimci_sayisi']:
+            val = r.get(key)
+            if val is not None and val != '' and not (isinstance(val, float) and pd.isna(val)):
+                try:
+                    d[key] = int(float(val))
+                except (ValueError, TypeError):
+                    pass
+        return d
+
+    new_flows = []
+    for i in range(1, len(history)):
+        today_date = str(history.iloc[i]['date'])
+        if today_date in flow_dates:
+            continue
+        flow = calculate_flow(_parse(history.iloc[i]), _parse(history.iloc[i-1]))
+        new_flows.append(flow)
+
+    if not new_flows:
+        return
+
+    new_df = pd.DataFrame(new_flows)
+    combined = pd.concat([existing, new_df], ignore_index=True) if existing is not None else new_df
+    combined = combined.sort_values(['fund_code', 'date']).reset_index(drop=True)
+    combined.to_csv(flow_file, index=False)
+    print(f"Backfilled {len(new_flows)} missing flow entries to {flow_file}")
+
+
 def generate_flow_chart(flow_df, output_path):
     """Generate a cumulative flow chart and save to PNG."""
     if flow_df.empty:
